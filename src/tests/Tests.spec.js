@@ -1,49 +1,24 @@
-import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/latest/dist/bundle.js';
-import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 import http from 'k6/http';
-import { check } from 'k6';
-import { Trend, Rate } from 'k6/metrics';
-
-export const getContactsDuration = new Trend('get_contacts', true);
-export const RateContentOK = new Rate('content_OK');
+import { check, sleep } from 'k6';
 
 export const options = {
+  vus: 10,
+  duration: '30s',
+
   thresholds: {
-    http_req_failed: ['rate<0.30'],
-    get_contacts: ['p(99)<500'],
-    content_OK: ['rate>0.95']
-  },
-  stages: [
-    { duration: '5s', target: 2 },
-    { duration: '5s', target: 6 }
-  ]
+    http_req_duration: ['p(90)<6800'],
+    http_req_failed: ['rate<0.25']
+  }
 };
 
-export function handleSummary(data) {
-  return {
-    './src/output/index.html': htmlReport(data),
-    stdout: textSummary(data, { indent: ' ', enableColors: true })
-  };
-}
-
 export default function () {
-  const baseUrl = 'https://test.k6.io/';
+  const response = http.get(
+    'https://petstore3.swagger.io/api/v3/pet/findByStatus?status=available'
+  );
 
-  const params = {
-    headers: {
-      'Content-Type': 'application/json'
-    }
-  };
-
-  const OK = 200;
-
-  const res = http.get(`${baseUrl}`, params);
-
-  getContactsDuration.add(res.timings.duration);
-
-  RateContentOK.add(res.status === OK);
-
-  check(res, {
-    'GET Contacts - Status 200': () => res.status === OK
+  check(response, {
+    'Status 200': res => res.status === 200
   });
+
+  sleep(1);
 }
